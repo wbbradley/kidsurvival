@@ -73,6 +73,7 @@ public class KidSurvivalMod implements ModInitializer {
         // Register /kid toggle command
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(literal("kid")
+                .requires(source -> source.hasPermissionLevel(2))
                 .executes(context -> {
                     ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
                     UUID uuid = player.getUuid();
