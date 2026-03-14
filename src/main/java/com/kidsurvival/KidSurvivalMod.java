@@ -111,13 +111,16 @@ public class KidSurvivalMod implements ModInitializer {
             return true;
         });
 
-        // Safety net: restore health each tick for kid-mode players
+        // Restore health, food, and saturation each tick for kid-mode players
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
                 if (kidModePlayers.contains(player.getUuid())) {
                     if (player.getHealth() < player.getMaxHealth()) {
                         player.setHealth(player.getMaxHealth());
                     }
+                    player.getHungerManager().setFoodLevel(20);
+                    player.getHungerManager().setSaturationLevel(20.0f);
+                    player.getHungerManager().setExhaustion(0.0f);
                 }
             }
         });
