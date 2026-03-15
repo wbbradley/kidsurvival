@@ -19,8 +19,6 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.minecraft.command.permission.Permission;
-import net.minecraft.command.permission.PermissionLevel;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -75,7 +73,6 @@ public class KidSurvivalMod implements ModInitializer {
         // Register /kid toggle command
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(literal("kid")
-                .requires(source -> source.getPermissions().hasPermission(new Permission.Level(PermissionLevel.GAMEMASTERS)))
                 .executes(context -> {
                     ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
                     UUID uuid = player.getUuid();
