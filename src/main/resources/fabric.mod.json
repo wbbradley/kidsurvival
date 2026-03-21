@@ -3,7 +3,7 @@
   "id": "kidsurvival",
   "version": "${version}",
   "name": "Kid Survival",
-  "description": "A toggle command that makes players invulnerable to damage and hunger.",
+  "description": "Kid mode invulnerability and Hunter Tag multiplayer game mode.",
   "authors": [],
   "contact": {},
   "license": "MIT",

@@ -19,10 +19,14 @@ import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.WorldSavePath;
 
 import static net.minecraft.server.command.CommandManager.literal;
@@ -30,6 +34,7 @@ import static net.minecraft.server.command.CommandManager.literal;
 public class KidSurvivalMod implements ModInitializer {
     private static final Gson GSON = new Gson();
     public static final Set<UUID> kidModePlayers = new HashSet<>();
+    public static final HunterTagGame hunterTagGame = new HunterTagGame();
 
     private static Path getStateFile(MinecraftServer server) {
         return server.getSavePath(WorldSavePath.ROOT).resolve("kidsurvival.json");
@@ -42,10 +47,15 @@ public class KidSurvivalMod implements ModInitializer {
         }
         try (Reader reader = Files.newBufferedReader(file)) {
             JsonObject obj = GSON.fromJson(reader, JsonObject.class);
-            if (obj != null && obj.has("players")) {
-                JsonArray arr = obj.getAsJsonArray("players");
-                for (JsonElement el : arr) {
-                    kidModePlayers.add(UUID.fromString(el.getAsString()));
+            if (obj != null) {
+                if (obj.has("players")) {
+                    JsonArray arr = obj.getAsJsonArray("players");
+                    for (JsonElement el : arr) {
+                        kidModePlayers.add(UUID.fromString(el.getAsString()));
+                    }
+                }
+                if (obj.has("hunterTag")) {
+                    hunterTagGame.loadFrom(obj.getAsJsonObject("hunterTag"));
                 }
             }
         } catch (IOException e) {
@@ -61,6 +71,7 @@ public class KidSurvivalMod implements ModInitializer {
         }
         JsonObject obj = new JsonObject();
         obj.add("players", arr);
+        obj.add("hunterTag", hunterTagGame.toJson());
         try (Writer writer = Files.newBufferedWriter(file)) {
             GSON.toJson(obj, writer);
         } catch (IOException e) {
@@ -70,7 +81,7 @@ public class KidSurvivalMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        // Register /kid toggle command
+        // Register /kid toggle command and /hunter command
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(literal("kid")
                 .executes(context -> {
@@ -98,6 +109,38 @@ public class KidSurvivalMod implements ModInitializer {
                     return 1;
                 })
             );
+
+            dispatcher.register(literal("hunter")
+                .executes(context -> {
+                    ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+                    MinecraftServer server = context.getSource().getServer();
+
+                    if (server.getPlayerManager().getPlayerList().size() < 2) {
+                        context.getSource().sendFeedback(
+                            () -> Text.literal("Need at least 2 players to start Hunter Tag!")
+                                    .formatted(Formatting.RED),
+                            false
+                        );
+                        return 0;
+                    }
+
+                    if (hunterTagGame.isGameActive()) {
+                        hunterTagGame.stopGame(server);
+                    }
+
+                    hunterTagGame.startRound(server, player);
+                    return 1;
+                })
+            );
+        });
+
+        // Intercept attacks for hunter tag
+        AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            if (world.isClient()) return ActionResult.PASS;
+            if (hunterTagGame.handleAttack(player, entity)) {
+                return ActionResult.FAIL;
+            }
+            return ActionResult.PASS;
         });
 
         // Cancel all damage for kid-mode players
@@ -110,7 +153,7 @@ public class KidSurvivalMod implements ModInitializer {
             return true;
         });
 
-        // Restore health, food, and saturation each tick for kid-mode players
+        // Tick handler for kid mode and hunter tag
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
                 if (kidModePlayers.contains(player.getUuid())) {
@@ -121,12 +164,22 @@ public class KidSurvivalMod implements ModInitializer {
                     player.getHungerManager().setSaturationLevel(20.0f);
                 }
             }
+            hunterTagGame.onTick(server);
         });
 
-        // Load kid-mode state when server starts
+        // Player join/disconnect for hunter tag
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            hunterTagGame.onPlayerJoin(handler.player, server);
+        });
+
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            hunterTagGame.onPlayerDisconnect(handler.player, server);
+        });
+
+        // Load state when server starts
         ServerLifecycleEvents.SERVER_STARTED.register(server -> load(server));
 
-        // Save kid-mode state when server stops
+        // Save state when server stops
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> save(server));
     }
 }
