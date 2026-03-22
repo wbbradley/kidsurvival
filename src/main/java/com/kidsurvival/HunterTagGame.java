@@ -9,6 +9,8 @@ import com.google.gson.JsonObject;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.FireworksComponent;
 import net.minecraft.entity.Entity;
+import net.minecraft.network.packet.s2c.play.TitleFadeS2CPacket;
+import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
@@ -151,6 +153,11 @@ public class HunterTagGame {
                 .append(Text.literal(" was tagged by ").formatted(Formatting.YELLOW))
                 .append(Text.literal(attackerPlayer.getName().getString()).formatted(Formatting.RED))
                 .append(Text.literal("!").formatted(Formatting.YELLOW)));
+
+        // Red flash for the captured player
+        targetPlayer.networkHandler.sendPacket(new TitleFadeS2CPacket(0, 20, 10));
+        targetPlayer.networkHandler.sendPacket(new TitleS2CPacket(
+                Text.literal("CAPTURED!").formatted(Formatting.DARK_RED)));
 
         if (runners.isEmpty()) {
             endRound(server, targetUuid);
@@ -530,8 +537,8 @@ public class HunterTagGame {
         var inventory = player.getInventory();
         inventory.clear();
 
-        // Boat in hotbar slot 0
-        inventory.setStack(0, new ItemStack(Items.OAK_BOAT));
+        // LATER: Boat in hotbar slot 0
+        // inventory.setStack(0, new ItemStack(Items.OAK_BOAT));
     }
 
     private void broadcast(MinecraftServer server, Text message) {
