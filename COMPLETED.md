@@ -1,5 +1,13 @@
 ## Completed
 
+### 10. Death Prevention for Kid Mode
+
+Registered `ServerLivingEntityEvents.ALLOW_DEATH` as a safety net behind the existing `ALLOW_DAMAGE` handler. When a kid-mode player would die (e.g., from `/kill` or void damage), the death event is canceled and health is restored to max. This catches edge cases where damage bypasses the `ALLOW_DAMAGE` handler.
+
+### 9. Kid Mode Visual Indicator
+
+Added action bar message "Kid Mode Active" (green) shown every second to players with kid mode enabled. Added `isPlayerInGame` method to `HunterTagGame` so the indicator is suppressed during active Hunter Tag games (which show their own role-based action bar messages).
+
 ### 8. Mod Icon for Modrinth
 
 Generated a 512x512 PNG icon with "KS" initials on a green (#4CAF50) background with darker green border. Added `"icon": "assets/kidsurvival/icon.png"` to `fabric.mod.json`. Icon was generated with a pure-Python script (no dependencies) and not committed.
