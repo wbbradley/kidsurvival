@@ -1,5 +1,13 @@
 ## Completed
 
+### 12. Return of Hunger
+
+Separated hunger management from `/kid` mode. `/kid` now only affects health (invulnerability, damage cancellation, death prevention). Added new `/hunger` toggle command that independently keeps food and saturation at max. Both modes persist across restarts and the action bar shows combined status ("Kid Mode + No Hunger", "Kid Mode Active", or "No Hunger").
+
+### 11. Runner Time Scoreboard (Sidebar)
+
+Added a sidebar scoreboard during Hunter Tag showing each player's accumulated runner time in seconds. Uses a Minecraft scoreboard objective (`dummy` criteria) in the `SIDEBAR` display slot titled "Hunter Tag". Scores update every 5 seconds (100 ticks). The scoreboard is created on round start, updated on player join, and removed when the game ends.
+
 ### 10. Death Prevention for Kid Mode
 
 Registered `ServerLivingEntityEvents.ALLOW_DEATH` as a safety net behind the existing `ALLOW_DAMAGE` handler. When a kid-mode player would die (e.g., from `/kill` or void damage), the death event is canceled and health is restored to max. This catches edge cases where damage bypasses the `ALLOW_DAMAGE` handler.
