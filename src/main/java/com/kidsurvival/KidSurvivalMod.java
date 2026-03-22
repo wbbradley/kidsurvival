@@ -154,6 +154,17 @@ public class KidSurvivalMod implements ModInitializer {
             return true;
         });
 
+        // Prevent death for kid-mode players (catches /kill, void, etc.)
+        ServerLivingEntityEvents.ALLOW_DEATH.register((entity, damageSource, damageAmount) -> {
+            if (entity instanceof ServerPlayerEntity player) {
+                if (kidModePlayers.contains(player.getUuid())) {
+                    player.setHealth(player.getMaxHealth());
+                    return false;
+                }
+            }
+            return true;
+        });
+
         // Tick handler for kid mode and hunter tag
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             tickCounter++;
