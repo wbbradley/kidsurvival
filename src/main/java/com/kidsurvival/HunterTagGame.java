@@ -35,6 +35,7 @@ public class HunterTagGame {
     private final Map<UUID, Long> frozenUntilTick = new HashMap<>();
     private final Map<UUID, Vec3d> frozenPositions = new HashMap<>();
     private final Map<UUID, Long> runnerTickScores = new HashMap<>();
+    private Set<UUID> benchedPlayers = Set.of();
     private long tickCounter = 0;
 
     private static final String HUNTER_TEAM = "ks_hunter";
@@ -49,19 +50,21 @@ public class HunterTagGame {
         return gameActive && (hunters.contains(uuid) || runners.contains(uuid));
     }
 
-    public void startRound(MinecraftServer server, ServerPlayerEntity hunterPlayer) {
+    public void startRound(MinecraftServer server, ServerPlayerEntity hunterPlayer, Set<UUID> benchedPlayers) {
         hunters.clear();
         runners.clear();
         frozenUntilTick.clear();
         frozenPositions.clear();
         gamePaused = false;
+        this.benchedPlayers = benchedPlayers;
 
         UUID hunterUuid = hunterPlayer.getUuid();
         hunters.add(hunterUuid);
 
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            if (!player.getUuid().equals(hunterUuid)) {
-                runners.add(player.getUuid());
+            UUID uuid = player.getUuid();
+            if (!uuid.equals(hunterUuid) && !benchedPlayers.contains(uuid)) {
+                runners.add(uuid);
             }
         }
 
@@ -214,8 +217,8 @@ public class HunterTagGame {
             }
         }
 
-        // Scoreboard update (every 100 ticks = 5 seconds)
-        if (tickCounter % 100 == 0) {
+        // Scoreboard update (every 20 ticks = 1 second)
+        if (tickCounter % 20 == 0) {
             updateScoreboard(server);
         }
 
@@ -243,8 +246,10 @@ public class HunterTagGame {
 
         // Restart with last-tagged runner as new hunter
         ServerPlayerEntity newHunter = server.getPlayerManager().getPlayer(lastRunnerUuid);
-        if (newHunter != null && server.getPlayerManager().getPlayerList().size() >= 2) {
-            startRound(server, newHunter);
+        long eligible = server.getPlayerManager().getPlayerList().stream()
+                .filter(p -> !benchedPlayers.contains(p.getUuid())).count();
+        if (newHunter != null && eligible >= 2) {
+            startRound(server, newHunter, benchedPlayers);
         } else {
             gameActive = false;
             broadcast(server, Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
@@ -285,7 +290,7 @@ public class HunterTagGame {
             }
         } else if (runners.contains(uuid)) {
             assignTeam(server, player, RUNNER_TEAM);
-        } else {
+        } else if (!benchedPlayers.contains(uuid)) {
             // New player joins mid-game as runner
             runners.add(uuid);
             assignTeam(server, player, RUNNER_TEAM);
@@ -293,6 +298,21 @@ public class HunterTagGame {
                     .append(Text.literal("You joined as a runner!").formatted(Formatting.GREEN)), false);
         }
         updateScoreboard(server);
+    }
+
+    public void removePlayer(UUID uuid, MinecraftServer server) {
+        if (!gameActive) return;
+        hunters.remove(uuid);
+        runners.remove(uuid);
+        frozenUntilTick.remove(uuid);
+        frozenPositions.remove(uuid);
+        ServerPlayerEntity player = server.getPlayerManager().getPlayer(uuid);
+        if (player != null) {
+            player.removeStatusEffect(StatusEffects.GLOWING);
+        }
+        if (runners.isEmpty() && gameActive) {
+            stopGame(server);
+        }
     }
 
     public void onPlayerDisconnect(ServerPlayerEntity player, MinecraftServer server) {

@@ -35,6 +35,7 @@ public class KidSurvivalMod implements ModInitializer {
     private static final Gson GSON = new Gson();
     public static final Set<UUID> kidModePlayers = new HashSet<>();
     public static final Set<UUID> hungerModePlayers = new HashSet<>();
+    public static final Set<UUID> benchedPlayers = new HashSet<>();
     public static final HunterTagGame hunterTagGame = new HunterTagGame();
     private static long tickCounter = 0;
 
@@ -62,6 +63,12 @@ public class KidSurvivalMod implements ModInitializer {
                         hungerModePlayers.add(UUID.fromString(el.getAsString()));
                     }
                 }
+                if (obj.has("benchedPlayers")) {
+                    JsonArray benchArr = obj.getAsJsonArray("benchedPlayers");
+                    for (JsonElement el : benchArr) {
+                        benchedPlayers.add(UUID.fromString(el.getAsString()));
+                    }
+                }
                 if (obj.has("hunterTag")) {
                     hunterTagGame.loadFrom(obj.getAsJsonObject("hunterTag"));
                 }
@@ -81,9 +88,14 @@ public class KidSurvivalMod implements ModInitializer {
         for (UUID uuid : hungerModePlayers) {
             hungerArr.add(uuid.toString());
         }
+        JsonArray benchArr = new JsonArray();
+        for (UUID uuid : benchedPlayers) {
+            benchArr.add(uuid.toString());
+        }
         JsonObject obj = new JsonObject();
         obj.add("players", arr);
         obj.add("hungerPlayers", hungerArr);
+        obj.add("benchedPlayers", benchArr);
         obj.add("hunterTag", hunterTagGame.toJson());
         try (Writer writer = Files.newBufferedWriter(file)) {
             GSON.toJson(obj, writer);
@@ -126,9 +138,11 @@ public class KidSurvivalMod implements ModInitializer {
                     ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
                     MinecraftServer server = context.getSource().getServer();
 
-                    if (server.getPlayerManager().getPlayerList().size() < 2) {
+                    long eligible = server.getPlayerManager().getPlayerList().stream()
+                            .filter(p -> !benchedPlayers.contains(p.getUuid())).count();
+                    if (eligible < 2) {
                         context.getSource().sendFeedback(
-                            () -> Text.literal("Need at least 2 players to start Hunter Tag!")
+                            () -> Text.literal("Need at least 2 non-benched players to start Hunter Tag!")
                                     .formatted(Formatting.RED),
                             false
                         );
@@ -139,7 +153,7 @@ public class KidSurvivalMod implements ModInitializer {
                         hunterTagGame.stopGame(server);
                     }
 
-                    hunterTagGame.startRound(server, player);
+                    hunterTagGame.startRound(server, player, benchedPlayers);
                     return 1;
                 })
             );
@@ -162,6 +176,30 @@ public class KidSurvivalMod implements ModInitializer {
 
                         context.getSource().sendFeedback(
                             () -> Text.literal("Hunger mode enabled (no hunger)"),
+                            false
+                        );
+                    }
+                    return 1;
+                })
+            );
+
+            dispatcher.register(literal("bench")
+                .executes(context -> {
+                    ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+                    UUID uuid = player.getUuid();
+
+                    if (benchedPlayers.contains(uuid)) {
+                        benchedPlayers.remove(uuid);
+                        context.getSource().sendFeedback(
+                            () -> Text.literal("You are no longer benched"),
+                            false
+                        );
+                    } else {
+                        benchedPlayers.add(uuid);
+                        MinecraftServer server = context.getSource().getServer();
+                        hunterTagGame.removePlayer(uuid, server);
+                        context.getSource().sendFeedback(
+                            () -> Text.literal("You are now benched (opted out of Hunter Tag)"),
                             false
                         );
                     }
