@@ -1,5 +1,13 @@
 ## Completed
 
+### 16. Capture Visual Effect
+
+When a runner is tagged during Hunter Tag, they see a large dark red "CAPTURED!" title that appears instantly, stays for 1 second, and fades out over 0.5 seconds. Only the tagged player sees it. Uses `TitleS2CPacket` and `TitleFadeS2CPacket`.
+
+### 15. Sneak to Hide Name Tag
+
+During Hunter Tag, sneaking (holding shift) applies a short Invisibility effect that hides the player's name tag and model. The Glowing outline remains visible through walls for tracking. Effect auto-expires within a few ticks when the player stops sneaking.
+
 ### 14. Bench Mode & Scoreboard Update Frequency
 
 Added `/bench` toggle command that opts players out of Hunter Tag entirely. Benched players are excluded from rounds (not added as hunters/runners), not teleported, not given loadout, not auto-added on mid-game join, and not counted for the "need 2 players" check. Benching mid-game removes the player from the active game. State persists across restarts. Also increased sidebar scoreboard update from every 5 seconds to every 1 second.
