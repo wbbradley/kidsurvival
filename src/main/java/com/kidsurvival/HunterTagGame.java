@@ -6,10 +6,15 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.FireworksComponent;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.scoreboard.ScoreboardCriterion;
 import net.minecraft.scoreboard.ScoreboardDisplaySlot;
 import net.minecraft.scoreboard.ScoreboardObjective;
@@ -81,6 +86,13 @@ public class HunterTagGame {
             Vec3d target = teleportTargets.get(player.getUuid());
             if (target != null) {
                 player.teleport(world, target.x, target.y, target.z, Set.of(), 0, 0, true);
+            }
+        }
+
+        // Equip loadout for all participants
+        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+            if (hunters.contains(player.getUuid()) || runners.contains(player.getUuid())) {
+                equipLoadout(player);
             }
         }
 
@@ -482,6 +494,22 @@ public class HunterTagGame {
         if (objective != null) {
             scoreboard.removeObjective(objective);
         }
+    }
+
+    private void equipLoadout(ServerPlayerEntity player) {
+        var inventory = player.getInventory();
+        inventory.clear();
+
+        // Elytra in chest slot
+        player.equipStack(EquipmentSlot.CHEST, new ItemStack(Items.ELYTRA));
+
+        // 64 firework rockets (flight duration 3) in hotbar slot 0
+        ItemStack fireworks = new ItemStack(Items.FIREWORK_ROCKET, 64);
+        fireworks.set(DataComponentTypes.FIREWORKS, new FireworksComponent(3, List.of()));
+        inventory.setStack(0, fireworks);
+
+        // Boat in hotbar slot 1
+        inventory.setStack(1, new ItemStack(Items.OAK_BOAT));
     }
 
     private void broadcast(MinecraftServer server, Text message) {
