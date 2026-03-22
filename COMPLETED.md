@@ -1,5 +1,9 @@
 ## Completed
 
+### 13. Hunter Tag Loadout
+
+On round start, all participants' inventories are cleared and replaced with a standard loadout: Elytra (equipped in chest slot), 64 firework rockets with flight duration 3 (hotbar slot 0), and an oak boat (hotbar slot 1).
+
 ### 12. Return of Hunger
 
 Separated hunger management from `/kid` mode. `/kid` now only affects health (invulnerability, damage cancellation, death prevention). Added new `/hunger` toggle command that independently keeps food and saturation at max. Both modes persist across restarts and the action bar shows combined status ("Kid Mode + No Hunger", "Kid Mode Active", or "No Hunger").
