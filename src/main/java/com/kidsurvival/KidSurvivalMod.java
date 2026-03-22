@@ -34,6 +34,7 @@ import static net.minecraft.server.command.CommandManager.literal;
 public class KidSurvivalMod implements ModInitializer {
     private static final Gson GSON = new Gson();
     public static final Set<UUID> kidModePlayers = new HashSet<>();
+    public static final Set<UUID> hungerModePlayers = new HashSet<>();
     public static final HunterTagGame hunterTagGame = new HunterTagGame();
     private static long tickCounter = 0;
 
@@ -55,6 +56,12 @@ public class KidSurvivalMod implements ModInitializer {
                         kidModePlayers.add(UUID.fromString(el.getAsString()));
                     }
                 }
+                if (obj.has("hungerPlayers")) {
+                    JsonArray hungerArr = obj.getAsJsonArray("hungerPlayers");
+                    for (JsonElement el : hungerArr) {
+                        hungerModePlayers.add(UUID.fromString(el.getAsString()));
+                    }
+                }
                 if (obj.has("hunterTag")) {
                     hunterTagGame.loadFrom(obj.getAsJsonObject("hunterTag"));
                 }
@@ -70,8 +77,13 @@ public class KidSurvivalMod implements ModInitializer {
         for (UUID uuid : kidModePlayers) {
             arr.add(uuid.toString());
         }
+        JsonArray hungerArr = new JsonArray();
+        for (UUID uuid : hungerModePlayers) {
+            hungerArr.add(uuid.toString());
+        }
         JsonObject obj = new JsonObject();
         obj.add("players", arr);
+        obj.add("hungerPlayers", hungerArr);
         obj.add("hunterTag", hunterTagGame.toJson());
         try (Writer writer = Files.newBufferedWriter(file)) {
             GSON.toJson(obj, writer);
@@ -97,10 +109,8 @@ public class KidSurvivalMod implements ModInitializer {
                         );
                     } else {
                         kidModePlayers.add(uuid);
-                        // Immediately restore health, food, and saturation
+                        // Immediately restore health
                         player.setHealth(player.getMaxHealth());
-                        player.getHungerManager().setFoodLevel(20);
-                        player.getHungerManager().setSaturationLevel(20.0f);
 
                         context.getSource().sendFeedback(
                             () -> Text.literal("Kid mode enabled"),
@@ -130,6 +140,31 @@ public class KidSurvivalMod implements ModInitializer {
                     }
 
                     hunterTagGame.startRound(server, player);
+                    return 1;
+                })
+            );
+
+            dispatcher.register(literal("hunger")
+                .executes(context -> {
+                    ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+                    UUID uuid = player.getUuid();
+
+                    if (hungerModePlayers.contains(uuid)) {
+                        hungerModePlayers.remove(uuid);
+                        context.getSource().sendFeedback(
+                            () -> Text.literal("Hunger mode disabled"),
+                            false
+                        );
+                    } else {
+                        hungerModePlayers.add(uuid);
+                        player.getHungerManager().setFoodLevel(20);
+                        player.getHungerManager().setSaturationLevel(20.0f);
+
+                        context.getSource().sendFeedback(
+                            () -> Text.literal("Hunger mode enabled (no hunger)"),
+                            false
+                        );
+                    }
                     return 1;
                 })
             );
@@ -173,6 +208,8 @@ public class KidSurvivalMod implements ModInitializer {
                     if (player.getHealth() < player.getMaxHealth()) {
                         player.setHealth(player.getMaxHealth());
                     }
+                }
+                if (hungerModePlayers.contains(player.getUuid())) {
                     player.getHungerManager().setFoodLevel(20);
                     player.getHungerManager().setSaturationLevel(20.0f);
                 }
@@ -180,10 +217,20 @@ public class KidSurvivalMod implements ModInitializer {
             // Action bar indicator every 20 ticks
             if (tickCounter % 20 == 0) {
                 for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-                    if (kidModePlayers.contains(player.getUuid())
-                            && !hunterTagGame.isPlayerInGame(player.getUuid())) {
+                    if (hunterTagGame.isPlayerInGame(player.getUuid())) continue;
+                    boolean kid = kidModePlayers.contains(player.getUuid());
+                    boolean hunger = hungerModePlayers.contains(player.getUuid());
+                    if (kid && hunger) {
+                        player.sendMessage(
+                            Text.literal("Kid Mode + No Hunger").formatted(Formatting.GREEN),
+                            true);
+                    } else if (kid) {
                         player.sendMessage(
                             Text.literal("Kid Mode Active").formatted(Formatting.GREEN),
+                            true);
+                    } else if (hunger) {
+                        player.sendMessage(
+                            Text.literal("No Hunger").formatted(Formatting.GREEN),
                             true);
                     }
                 }
