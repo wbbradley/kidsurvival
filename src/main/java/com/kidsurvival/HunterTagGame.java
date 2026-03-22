@@ -195,6 +195,16 @@ public class HunterTagGame {
             }
         }
 
+        // Invisibility for sneaking players (hides name tag, keeps glowing outline)
+        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+            UUID uuid = player.getUuid();
+            if (!hunters.contains(uuid) && !runners.contains(uuid)) continue;
+            if (player.isSneaking()) {
+                player.addStatusEffect(new StatusEffectInstance(
+                        StatusEffects.INVISIBILITY, 5, 0, false, false, false));
+            }
+        }
+
         // Action bar update (every 20 ticks = 1 second)
         if (tickCounter % 20 == 0) {
             for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
