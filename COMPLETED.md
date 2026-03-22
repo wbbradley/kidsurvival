@@ -1,5 +1,9 @@
 ## Completed
 
+### 14. Bench Mode & Scoreboard Update Frequency
+
+Added `/bench` toggle command that opts players out of Hunter Tag entirely. Benched players are excluded from rounds (not added as hunters/runners), not teleported, not given loadout, not auto-added on mid-game join, and not counted for the "need 2 players" check. Benching mid-game removes the player from the active game. State persists across restarts. Also increased sidebar scoreboard update from every 5 seconds to every 1 second.
+
 ### 13. Hunter Tag Loadout
 
 On round start, all participants' inventories are cleared and replaced with a standard loadout: Elytra (equipped in chest slot), 64 firework rockets with flight duration 3 (hotbar slot 0), and an oak boat (hotbar slot 1).
