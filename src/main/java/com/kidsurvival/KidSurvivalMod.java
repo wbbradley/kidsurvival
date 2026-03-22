@@ -35,6 +35,7 @@ public class KidSurvivalMod implements ModInitializer {
     private static final Gson GSON = new Gson();
     public static final Set<UUID> kidModePlayers = new HashSet<>();
     public static final HunterTagGame hunterTagGame = new HunterTagGame();
+    private static long tickCounter = 0;
 
     private static Path getStateFile(MinecraftServer server) {
         return server.getSavePath(WorldSavePath.ROOT).resolve("kidsurvival.json");
@@ -155,6 +156,7 @@ public class KidSurvivalMod implements ModInitializer {
 
         // Tick handler for kid mode and hunter tag
         ServerTickEvents.END_SERVER_TICK.register(server -> {
+            tickCounter++;
             for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
                 if (kidModePlayers.contains(player.getUuid())) {
                     if (player.getHealth() < player.getMaxHealth()) {
@@ -162,6 +164,17 @@ public class KidSurvivalMod implements ModInitializer {
                     }
                     player.getHungerManager().setFoodLevel(20);
                     player.getHungerManager().setSaturationLevel(20.0f);
+                }
+            }
+            // Action bar indicator every 20 ticks
+            if (tickCounter % 20 == 0) {
+                for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+                    if (kidModePlayers.contains(player.getUuid())
+                            && !hunterTagGame.isPlayerInGame(player.getUuid())) {
+                        player.sendMessage(
+                            Text.literal("Kid Mode Active").formatted(Formatting.GREEN),
+                            true);
+                    }
                 }
             }
             hunterTagGame.onTick(server);

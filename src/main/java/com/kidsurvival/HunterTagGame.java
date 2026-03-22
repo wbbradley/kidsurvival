@@ -36,6 +36,10 @@ public class HunterTagGame {
         return gameActive;
     }
 
+    public boolean isPlayerInGame(UUID uuid) {
+        return gameActive && (hunters.contains(uuid) || runners.contains(uuid));
+    }
+
     public void startRound(MinecraftServer server, ServerPlayerEntity hunterPlayer) {
         hunters.clear();
         runners.clear();

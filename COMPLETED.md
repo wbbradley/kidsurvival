@@ -1,5 +1,17 @@
 ## Completed
 
+### 8. Mod Icon for Modrinth
+
+Generated a 512x512 PNG icon with "KS" initials on a green (#4CAF50) background with darker green border. Added `"icon": "assets/kidsurvival/icon.png"` to `fabric.mod.json`. Icon was generated with a pure-Python script (no dependencies) and not committed.
+
+### 7. Bump version to 1.1.0
+
+Updated `gradle.properties` and README JAR references from 1.0.0 to 1.1.0. Build produces `kidsurvival-1.1.0.jar`.
+
+### 6. Update README and Modrinth Materials
+
+Rewrote README to document both Kid Mode and Hunter Tag features, with updated requirements, usage, and troubleshooting sections. Changed `fabric.mod.json` environment from `"*"` to `"server"` since the mod is entirely server-side. Authors and contact left empty per plan. Icon creation deferred (asset, not code).
+
 ### 5. Hunter Tag Game Mode
 
 Added `/hunter` command that starts a tag-style multiplayer game mode. One player is the hunter (frozen for 30s), all others are runners. Hunter tags runners by melee attack (no damage dealt, compatible with kid mode). Tagged runners become hunters. When the last runner is caught, scores are reported and a new round auto-starts.
