@@ -10,6 +10,9 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.scoreboard.ScoreboardCriterion;
+import net.minecraft.scoreboard.ScoreboardDisplaySlot;
+import net.minecraft.scoreboard.ScoreboardObjective;
 import net.minecraft.scoreboard.Team;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -31,6 +34,7 @@ public class HunterTagGame {
 
     private static final String HUNTER_TEAM = "ks_hunter";
     private static final String RUNNER_TEAM = "ks_runner";
+    private static final String SCORE_OBJECTIVE = "ks_score";
 
     public boolean isGameActive() {
         return gameActive;
@@ -89,6 +93,7 @@ public class HunterTagGame {
         }
 
         setupTeams(server);
+        createScoreboard(server);
         applyGlowing(server);
 
         broadcast(server, Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
@@ -197,6 +202,11 @@ public class HunterTagGame {
             }
         }
 
+        // Scoreboard update (every 100 ticks = 5 seconds)
+        if (tickCounter % 100 == 0) {
+            updateScoreboard(server);
+        }
+
         // Glowing refresh (every 60 ticks = 3 seconds)
         if (tickCounter % 60 == 0) {
             applyGlowing(server);
@@ -270,6 +280,7 @@ public class HunterTagGame {
             player.sendMessage(Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
                     .append(Text.literal("You joined as a runner!").formatted(Formatting.GREEN)), false);
         }
+        updateScoreboard(server);
     }
 
     public void onPlayerDisconnect(ServerPlayerEntity player, MinecraftServer server) {
@@ -422,6 +433,8 @@ public class HunterTagGame {
     private void clearEffectsAndTeams(MinecraftServer server) {
         var scoreboard = server.getScoreboard();
 
+        removeScoreboard(server);
+
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
             player.removeStatusEffect(StatusEffects.GLOWING);
         }
@@ -431,6 +444,44 @@ public class HunterTagGame {
 
         Team runnerTeam = scoreboard.getTeam(RUNNER_TEAM);
         if (runnerTeam != null) scoreboard.removeTeam(runnerTeam);
+    }
+
+    private void createScoreboard(MinecraftServer server) {
+        var scoreboard = server.getScoreboard();
+        ScoreboardObjective existing = scoreboard.getNullableObjective(SCORE_OBJECTIVE);
+        if (existing != null) {
+            scoreboard.removeObjective(existing);
+        }
+        ScoreboardObjective objective = scoreboard.addObjective(
+                SCORE_OBJECTIVE,
+                ScoreboardCriterion.DUMMY,
+                Text.literal("Hunter Tag").formatted(Formatting.GOLD),
+                ScoreboardCriterion.RenderType.INTEGER,
+                false,
+                null);
+        scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.SIDEBAR, objective);
+        updateScoreboard(server);
+    }
+
+    private void updateScoreboard(MinecraftServer server) {
+        var scoreboard = server.getScoreboard();
+        ScoreboardObjective objective = scoreboard.getNullableObjective(SCORE_OBJECTIVE);
+        if (objective == null) return;
+
+        for (Map.Entry<UUID, Long> entry : runnerTickScores.entrySet()) {
+            ServerPlayerEntity player = server.getPlayerManager().getPlayer(entry.getKey());
+            if (player == null) continue;
+            int seconds = (int) (entry.getValue() / 20);
+            scoreboard.getOrCreateScore(player, objective).setScore(seconds);
+        }
+    }
+
+    private void removeScoreboard(MinecraftServer server) {
+        var scoreboard = server.getScoreboard();
+        ScoreboardObjective objective = scoreboard.getNullableObjective(SCORE_OBJECTIVE);
+        if (objective != null) {
+            scoreboard.removeObjective(objective);
+        }
     }
 
     private void broadcast(MinecraftServer server, Text message) {
