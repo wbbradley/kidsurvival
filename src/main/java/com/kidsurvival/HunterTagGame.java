@@ -520,16 +520,8 @@ public class HunterTagGame {
         var inventory = player.getInventory();
         inventory.clear();
 
-        // Elytra in chest slot
-        player.equipStack(EquipmentSlot.CHEST, new ItemStack(Items.ELYTRA));
-
-        // 64 firework rockets (flight duration 3) in hotbar slot 0
-        ItemStack fireworks = new ItemStack(Items.FIREWORK_ROCKET, 64);
-        fireworks.set(DataComponentTypes.FIREWORKS, new FireworksComponent(3, List.of()));
-        inventory.setStack(0, fireworks);
-
-        // Boat in hotbar slot 1
-        inventory.setStack(1, new ItemStack(Items.OAK_BOAT));
+        // Boat in hotbar slot 0
+        inventory.setStack(0, new ItemStack(Items.OAK_BOAT));
     }
 
     private void broadcast(MinecraftServer server, Text message) {
