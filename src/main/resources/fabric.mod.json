@@ -14,13 +14,10 @@
       "com.kidsurvival.KidSurvivalMod"
     ]
   },
-  "mixins": [
-    "kidsurvival.mixins.json"
-  ],
   "depends": {
-    "fabricloader": ">=0.16.0",
-    "minecraft": "~1.21",
-    "java": ">=21",
+    "fabricloader": ">=0.19.2",
+    "minecraft": "~26.1.2",
+    "java": ">=25",
     "fabric-api": "*"
   }
 }

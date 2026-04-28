@@ -53,9 +53,9 @@ esac
 
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
-# Default to Homebrew Java 21 on macOS (Gradle requires JDK <=24).
-if [ -z "$JAVA_HOME" ] && [ -d "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home" ]; then
-    JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+# Default to Homebrew Java 25 on macOS.
+if [ -z "$JAVA_HOME" ] && [ -d "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home" ]; then
+    JAVA_HOME="/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home"
 fi
 
 # Determine the Java command to use to start the JVM.

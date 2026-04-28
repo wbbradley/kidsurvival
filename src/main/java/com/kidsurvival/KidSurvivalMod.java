@@ -21,15 +21,15 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.WorldSavePath;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.storage.LevelResource;
 
-import static net.minecraft.server.command.CommandManager.literal;
+import static net.minecraft.commands.Commands.literal;
 
 public class KidSurvivalMod implements ModInitializer {
     private static final Gson GSON = new Gson();
@@ -40,7 +40,7 @@ public class KidSurvivalMod implements ModInitializer {
     private static long tickCounter = 0;
 
     private static Path getStateFile(MinecraftServer server) {
-        return server.getSavePath(WorldSavePath.ROOT).resolve("kidsurvival.json");
+        return server.getWorldPath(LevelResource.ROOT).resolve("kidsurvival.json");
     }
 
     private static void load(MinecraftServer server) {
@@ -110,13 +110,13 @@ public class KidSurvivalMod implements ModInitializer {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(literal("kid")
                 .executes(context -> {
-                    ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
-                    UUID uuid = player.getUuid();
+                    ServerPlayer player = context.getSource().getPlayerOrException();
+                    UUID uuid = player.getUUID();
 
                     if (kidModePlayers.contains(uuid)) {
                         kidModePlayers.remove(uuid);
-                        context.getSource().sendFeedback(
-                            () -> Text.literal("Kid mode disabled"),
+                        context.getSource().sendSuccess(
+                            () -> Component.literal("Kid mode disabled"),
                             false
                         );
                     } else {
@@ -124,8 +124,8 @@ public class KidSurvivalMod implements ModInitializer {
                         // Immediately restore health
                         player.setHealth(player.getMaxHealth());
 
-                        context.getSource().sendFeedback(
-                            () -> Text.literal("Kid mode enabled"),
+                        context.getSource().sendSuccess(
+                            () -> Component.literal("Kid mode enabled"),
                             false
                         );
                     }
@@ -135,15 +135,15 @@ public class KidSurvivalMod implements ModInitializer {
 
             dispatcher.register(literal("hunter")
                 .executes(context -> {
-                    ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+                    ServerPlayer player = context.getSource().getPlayerOrException();
                     MinecraftServer server = context.getSource().getServer();
 
-                    long eligible = server.getPlayerManager().getPlayerList().stream()
-                            .filter(p -> !benchedPlayers.contains(p.getUuid())).count();
+                    long eligible = server.getPlayerList().getPlayers().stream()
+                            .filter(p -> !benchedPlayers.contains(p.getUUID())).count();
                     if (eligible < 2) {
-                        context.getSource().sendFeedback(
-                            () -> Text.literal("Need at least 2 non-benched players to start Hunter Tag!")
-                                    .formatted(Formatting.RED),
+                        context.getSource().sendSuccess(
+                            () -> Component.literal("Need at least 2 non-benched players to start Hunter Tag!")
+                                    .withStyle(ChatFormatting.RED),
                             false
                         );
                         return 0;
@@ -160,22 +160,22 @@ public class KidSurvivalMod implements ModInitializer {
 
             dispatcher.register(literal("hunger")
                 .executes(context -> {
-                    ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
-                    UUID uuid = player.getUuid();
+                    ServerPlayer player = context.getSource().getPlayerOrException();
+                    UUID uuid = player.getUUID();
 
                     if (hungerModePlayers.contains(uuid)) {
                         hungerModePlayers.remove(uuid);
-                        context.getSource().sendFeedback(
-                            () -> Text.literal("Hunger mode disabled"),
+                        context.getSource().sendSuccess(
+                            () -> Component.literal("Hunger mode disabled"),
                             false
                         );
                     } else {
                         hungerModePlayers.add(uuid);
-                        player.getHungerManager().setFoodLevel(20);
-                        player.getHungerManager().setSaturationLevel(20.0f);
+                        player.getFoodData().setFoodLevel(20);
+                        player.getFoodData().setSaturation(20.0f);
 
-                        context.getSource().sendFeedback(
-                            () -> Text.literal("Hunger mode enabled (no hunger)"),
+                        context.getSource().sendSuccess(
+                            () -> Component.literal("Hunger mode enabled (no hunger)"),
                             false
                         );
                     }
@@ -185,21 +185,21 @@ public class KidSurvivalMod implements ModInitializer {
 
             dispatcher.register(literal("bench")
                 .executes(context -> {
-                    ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
-                    UUID uuid = player.getUuid();
+                    ServerPlayer player = context.getSource().getPlayerOrException();
+                    UUID uuid = player.getUUID();
 
                     if (benchedPlayers.contains(uuid)) {
                         benchedPlayers.remove(uuid);
-                        context.getSource().sendFeedback(
-                            () -> Text.literal("You are no longer benched"),
+                        context.getSource().sendSuccess(
+                            () -> Component.literal("You are no longer benched"),
                             false
                         );
                     } else {
                         benchedPlayers.add(uuid);
                         MinecraftServer server = context.getSource().getServer();
                         hunterTagGame.removePlayer(uuid, server);
-                        context.getSource().sendFeedback(
-                            () -> Text.literal("You are now benched (opted out of Hunter Tag)"),
+                        context.getSource().sendSuccess(
+                            () -> Component.literal("You are now benched (opted out of Hunter Tag)"),
                             false
                         );
                     }
@@ -210,17 +210,17 @@ public class KidSurvivalMod implements ModInitializer {
 
         // Intercept attacks for hunter tag
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
-            if (world.isClient()) return ActionResult.PASS;
+            if (world.isClientSide()) return InteractionResult.PASS;
             if (hunterTagGame.handleAttack(player, entity)) {
-                return ActionResult.FAIL;
+                return InteractionResult.FAIL;
             }
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         });
 
         // Cancel all damage for kid-mode players
         ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
-            if (entity instanceof PlayerEntity player) {
-                if (kidModePlayers.contains(player.getUuid())) {
+            if (entity instanceof Player player) {
+                if (kidModePlayers.contains(player.getUUID())) {
                     return false;
                 }
             }
@@ -229,8 +229,8 @@ public class KidSurvivalMod implements ModInitializer {
 
         // Prevent death for kid-mode players (catches /kill, void, etc.)
         ServerLivingEntityEvents.ALLOW_DEATH.register((entity, damageSource, damageAmount) -> {
-            if (entity instanceof ServerPlayerEntity player) {
-                if (kidModePlayers.contains(player.getUuid())) {
+            if (entity instanceof ServerPlayer player) {
+                if (kidModePlayers.contains(player.getUUID())) {
                     player.setHealth(player.getMaxHealth());
                     return false;
                 }
@@ -241,34 +241,34 @@ public class KidSurvivalMod implements ModInitializer {
         // Tick handler for kid mode and hunter tag
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             tickCounter++;
-            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-                if (kidModePlayers.contains(player.getUuid())) {
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                if (kidModePlayers.contains(player.getUUID())) {
                     if (player.getHealth() < player.getMaxHealth()) {
                         player.setHealth(player.getMaxHealth());
                     }
                 }
-                if (hungerModePlayers.contains(player.getUuid())) {
-                    player.getHungerManager().setFoodLevel(20);
-                    player.getHungerManager().setSaturationLevel(20.0f);
+                if (hungerModePlayers.contains(player.getUUID())) {
+                    player.getFoodData().setFoodLevel(20);
+                    player.getFoodData().setSaturation(20.0f);
                 }
             }
             // Action bar indicator every 20 ticks
             if (tickCounter % 20 == 0) {
-                for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-                    if (hunterTagGame.isPlayerInGame(player.getUuid())) continue;
-                    boolean kid = kidModePlayers.contains(player.getUuid());
-                    boolean hunger = hungerModePlayers.contains(player.getUuid());
+                for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                    if (hunterTagGame.isPlayerInGame(player.getUUID())) continue;
+                    boolean kid = kidModePlayers.contains(player.getUUID());
+                    boolean hunger = hungerModePlayers.contains(player.getUUID());
                     if (kid && hunger) {
-                        player.sendMessage(
-                            Text.literal("Kid Mode + No Hunger").formatted(Formatting.GREEN),
+                        player.sendSystemMessage(
+                            Component.literal("Kid Mode + No Hunger").withStyle(ChatFormatting.GREEN),
                             true);
                     } else if (kid) {
-                        player.sendMessage(
-                            Text.literal("Kid Mode Active").formatted(Formatting.GREEN),
+                        player.sendSystemMessage(
+                            Component.literal("Kid Mode Active").withStyle(ChatFormatting.GREEN),
                             true);
                     } else if (hunger) {
-                        player.sendMessage(
-                            Text.literal("No Hunger").formatted(Formatting.GREEN),
+                        player.sendSystemMessage(
+                            Component.literal("No Hunger").withStyle(ChatFormatting.GREEN),
                             true);
                     }
                 }

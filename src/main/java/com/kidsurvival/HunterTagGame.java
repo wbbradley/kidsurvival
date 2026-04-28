@@ -6,28 +6,23 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.FireworksComponent;
-import net.minecraft.entity.Entity;
-import net.minecraft.network.packet.s2c.play.TitleFadeS2CPacket;
-import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.scoreboard.ScoreboardCriterion;
-import net.minecraft.scoreboard.ScoreboardDisplaySlot;
-import net.minecraft.scoreboard.ScoreboardObjective;
-import net.minecraft.scoreboard.Team;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.Heightmap;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.scores.DisplaySlot;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 
 public class HunterTagGame {
     private boolean gameActive = false;
@@ -35,7 +30,7 @@ public class HunterTagGame {
     private final Set<UUID> hunters = new HashSet<>();
     private final Set<UUID> runners = new HashSet<>();
     private final Map<UUID, Long> frozenUntilTick = new HashMap<>();
-    private final Map<UUID, Vec3d> frozenPositions = new HashMap<>();
+    private final Map<UUID, Vec3> frozenPositions = new HashMap<>();
     private final Map<UUID, Long> runnerTickScores = new HashMap<>();
     private Set<UUID> benchedPlayers = Set.of();
     private long tickCounter = 0;
@@ -52,7 +47,7 @@ public class HunterTagGame {
         return gameActive && (hunters.contains(uuid) || runners.contains(uuid));
     }
 
-    public void startRound(MinecraftServer server, ServerPlayerEntity hunterPlayer, Set<UUID> benchedPlayers) {
+    public void startRound(MinecraftServer server, ServerPlayer hunterPlayer, Set<UUID> benchedPlayers) {
         hunters.clear();
         runners.clear();
         frozenUntilTick.clear();
@@ -60,11 +55,11 @@ public class HunterTagGame {
         gamePaused = false;
         this.benchedPlayers = benchedPlayers;
 
-        UUID hunterUuid = hunterPlayer.getUuid();
+        UUID hunterUuid = hunterPlayer.getUUID();
         hunters.add(hunterUuid);
 
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            UUID uuid = player.getUuid();
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            UUID uuid = player.getUUID();
             if (!uuid.equals(hunterUuid) && !benchedPlayers.contains(uuid)) {
                 runners.add(uuid);
             }
@@ -73,30 +68,30 @@ public class HunterTagGame {
         gameActive = true;
 
         // Teleport all players near (0, 0) with random spread
-        ServerWorld world = server.getOverworld();
+        ServerLevel world = server.overworld();
         Random rand = new Random();
-        Map<UUID, Vec3d> teleportTargets = new HashMap<>();
+        Map<UUID, Vec3> teleportTargets = new HashMap<>();
 
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            UUID uuid = player.getUuid();
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            UUID uuid = player.getUUID();
             if (hunters.contains(uuid) || runners.contains(uuid)) {
                 int x = rand.nextInt(21) - 10;
                 int z = rand.nextInt(21) - 10;
-                int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
-                teleportTargets.put(uuid, new Vec3d(x + 0.5, y, z + 0.5));
+                int y = world.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z);
+                teleportTargets.put(uuid, new Vec3(x + 0.5, y, z + 0.5));
             }
         }
 
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            Vec3d target = teleportTargets.get(player.getUuid());
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            Vec3 target = teleportTargets.get(player.getUUID());
             if (target != null) {
-                player.teleport(world, target.x, target.y, target.z, Set.of(), 0, 0, true);
+                player.teleportTo(world, target.x, target.y, target.z, Set.of(), 0, 0, true);
             }
         }
 
         // Equip loadout for all participants
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            if (hunters.contains(player.getUuid()) || runners.contains(player.getUuid())) {
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (hunters.contains(player.getUUID()) || runners.contains(player.getUUID())) {
                 equipLoadout(player);
             }
         }
@@ -104,7 +99,7 @@ public class HunterTagGame {
         // Freeze hunter for 600 ticks (30 seconds)
         long unfreezeAt = tickCounter + 600;
         frozenUntilTick.put(hunterUuid, unfreezeAt);
-        Vec3d hunterTarget = teleportTargets.get(hunterUuid);
+        Vec3 hunterTarget = teleportTargets.get(hunterUuid);
         if (hunterTarget != null) {
             frozenPositions.put(hunterUuid, hunterTarget);
         }
@@ -113,22 +108,22 @@ public class HunterTagGame {
         createScoreboard(server);
         applyGlowing(server);
 
-        broadcast(server, Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
-                .append(Text.literal("Round started! ").formatted(Formatting.YELLOW))
-                .append(Text.literal(hunterPlayer.getName().getString()).formatted(Formatting.RED))
-                .append(Text.literal(" is the hunter (frozen for 30s)!").formatted(Formatting.YELLOW)));
+        broadcast(server, Component.literal("[Hunter Tag] ").withStyle(ChatFormatting.GOLD)
+                .append(Component.literal("Round started! ").withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(hunterPlayer.getName().getString()).withStyle(ChatFormatting.RED))
+                .append(Component.literal(" is the hunter (frozen for 30s)!").withStyle(ChatFormatting.YELLOW)));
     }
 
     /**
      * Returns true if the attack was a tag (caller should cancel the attack).
      */
-    public boolean handleAttack(PlayerEntity attacker, Entity target) {
+    public boolean handleAttack(Player attacker, Entity target) {
         if (!gameActive || gamePaused) return false;
-        if (!(target instanceof ServerPlayerEntity targetPlayer)) return false;
-        if (!(attacker instanceof ServerPlayerEntity attackerPlayer)) return false;
+        if (!(target instanceof ServerPlayer targetPlayer)) return false;
+        if (!(attacker instanceof ServerPlayer attackerPlayer)) return false;
 
-        UUID attackerUuid = attacker.getUuid();
-        UUID targetUuid = target.getUuid();
+        UUID attackerUuid = attacker.getUUID();
+        UUID targetUuid = target.getUUID();
 
         if (!hunters.contains(attackerUuid)) return false;
         if (!runners.contains(targetUuid)) return false;
@@ -142,22 +137,22 @@ public class HunterTagGame {
         runners.remove(targetUuid);
         hunters.add(targetUuid);
 
-        MinecraftServer server = attackerPlayer.getEntityWorld().getServer();
+        MinecraftServer server = attackerPlayer.level().getServer();
         if (server == null) return true;
 
         assignTeam(server, targetPlayer, HUNTER_TEAM);
         applyGlowingToPlayer(targetPlayer, true);
 
-        broadcast(server, Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
-                .append(Text.literal(targetPlayer.getName().getString()).formatted(Formatting.RED))
-                .append(Text.literal(" was tagged by ").formatted(Formatting.YELLOW))
-                .append(Text.literal(attackerPlayer.getName().getString()).formatted(Formatting.RED))
-                .append(Text.literal("!").formatted(Formatting.YELLOW)));
+        broadcast(server, Component.literal("[Hunter Tag] ").withStyle(ChatFormatting.GOLD)
+                .append(Component.literal(targetPlayer.getName().getString()).withStyle(ChatFormatting.RED))
+                .append(Component.literal(" was tagged by ").withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(attackerPlayer.getName().getString()).withStyle(ChatFormatting.RED))
+                .append(Component.literal("!").withStyle(ChatFormatting.YELLOW)));
 
         // Red flash for the captured player
-        targetPlayer.networkHandler.sendPacket(new TitleFadeS2CPacket(0, 20, 10));
-        targetPlayer.networkHandler.sendPacket(new TitleS2CPacket(
-                Text.literal("CAPTURED!").formatted(Formatting.DARK_RED)));
+        targetPlayer.connection.send(new ClientboundSetTitlesAnimationPacket(0, 20, 10));
+        targetPlayer.connection.send(new ClientboundSetTitleTextPacket(
+                Component.literal("CAPTURED!").withStyle(ChatFormatting.DARK_RED)));
 
         if (runners.isEmpty()) {
             endRound(server, targetUuid);
@@ -177,60 +172,60 @@ public class HunterTagGame {
             UUID uuid = entry.getKey();
             long unfreezeAt = entry.getValue();
 
-            ServerPlayerEntity player = server.getPlayerManager().getPlayer(uuid);
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) continue;
 
             if (tickCounter >= unfreezeAt) {
                 freezeIt.remove();
                 frozenPositions.remove(uuid);
-                player.sendMessage(Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
-                        .append(Text.literal("You are unfrozen! Go hunt!").formatted(Formatting.RED)), true);
+                player.sendSystemMessage(Component.literal("[Hunter Tag] ").withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal("You are unfrozen! Go hunt!").withStyle(ChatFormatting.RED)), true);
             } else {
-                Vec3d pos = frozenPositions.get(uuid);
+                Vec3 pos = frozenPositions.get(uuid);
                 if (pos != null) {
-                    player.requestTeleport(pos.x, pos.y, pos.z);
-                    player.setVelocity(Vec3d.ZERO);
+                    player.teleportTo(pos.x, pos.y, pos.z);
+                    player.setDeltaMovement(Vec3.ZERO);
                 }
             }
         }
 
         // Scoring: increment for online runners
         for (UUID runnerUuid : runners) {
-            ServerPlayerEntity player = server.getPlayerManager().getPlayer(runnerUuid);
+            ServerPlayer player = server.getPlayerList().getPlayer(runnerUuid);
             if (player != null) {
                 runnerTickScores.merge(runnerUuid, 1L, Long::sum);
             }
         }
 
         // Invisibility for sneaking players (hides name tag, keeps glowing outline)
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            UUID uuid = player.getUuid();
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            UUID uuid = player.getUUID();
             if (!hunters.contains(uuid) && !runners.contains(uuid)) continue;
-            if (player.isSneaking()) {
-                player.addStatusEffect(new StatusEffectInstance(
-                        StatusEffects.INVISIBILITY, 5, 0, false, false, false));
+            if (player.isShiftKeyDown()) {
+                player.addEffect(new MobEffectInstance(
+                        MobEffects.INVISIBILITY, 5, 0, false, false, false));
             }
         }
 
         // Action bar update (every 20 ticks = 1 second)
         if (tickCounter % 20 == 0) {
-            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-                UUID uuid = player.getUuid();
-                Text message;
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                UUID uuid = player.getUUID();
+                Component message;
                 if (hunters.contains(uuid)) {
                     Long unfreezeAt = frozenUntilTick.get(uuid);
                     if (unfreezeAt != null && unfreezeAt > tickCounter) {
                         long secondsLeft = (unfreezeAt - tickCounter) / 20;
-                        message = Text.literal("HUNTER (frozen: " + secondsLeft + "s)").formatted(Formatting.RED);
+                        message = Component.literal("HUNTER (frozen: " + secondsLeft + "s)").withStyle(ChatFormatting.RED);
                     } else {
-                        message = Text.literal("HUNTER").formatted(Formatting.RED);
+                        message = Component.literal("HUNTER").withStyle(ChatFormatting.RED);
                     }
                 } else if (runners.contains(uuid)) {
-                    message = Text.literal("RUNNER").formatted(Formatting.GREEN);
+                    message = Component.literal("RUNNER").withStyle(ChatFormatting.GREEN);
                 } else {
                     continue;
                 }
-                player.sendMessage(message, true);
+                player.sendSystemMessage(message, true);
             }
         }
 
@@ -246,31 +241,31 @@ public class HunterTagGame {
     }
 
     private void endRound(MinecraftServer server, UUID lastRunnerUuid) {
-        broadcast(server, Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
-                .append(Text.literal("Round over! Scores:").formatted(Formatting.YELLOW)));
+        broadcast(server, Component.literal("[Hunter Tag] ").withStyle(ChatFormatting.GOLD)
+                .append(Component.literal("Round over! Scores:").withStyle(ChatFormatting.YELLOW)));
 
         List<Map.Entry<UUID, Long>> sorted = new ArrayList<>(runnerTickScores.entrySet());
         sorted.sort(Map.Entry.<UUID, Long>comparingByValue().reversed());
 
         for (Map.Entry<UUID, Long> entry : sorted) {
-            ServerPlayerEntity player = server.getPlayerManager().getPlayer(entry.getKey());
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             String name = player != null ? player.getName().getString() : entry.getKey().toString();
             long seconds = entry.getValue() / 20;
-            broadcast(server, Text.literal("  " + name + ": " + seconds + "s").formatted(Formatting.AQUA));
+            broadcast(server, Component.literal("  " + name + ": " + seconds + "s").withStyle(ChatFormatting.AQUA));
         }
 
         clearEffectsAndTeams(server);
 
         // Restart with last-tagged runner as new hunter
-        ServerPlayerEntity newHunter = server.getPlayerManager().getPlayer(lastRunnerUuid);
-        long eligible = server.getPlayerManager().getPlayerList().stream()
-                .filter(p -> !benchedPlayers.contains(p.getUuid())).count();
+        ServerPlayer newHunter = server.getPlayerList().getPlayer(lastRunnerUuid);
+        long eligible = server.getPlayerList().getPlayers().stream()
+                .filter(p -> !benchedPlayers.contains(p.getUUID())).count();
         if (newHunter != null && eligible >= 2) {
             startRound(server, newHunter, benchedPlayers);
         } else {
             gameActive = false;
-            broadcast(server, Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
-                    .append(Text.literal("Game ended — not enough players for next round.").formatted(Formatting.YELLOW)));
+            broadcast(server, Component.literal("[Hunter Tag] ").withStyle(ChatFormatting.GOLD)
+                    .append(Component.literal("Game ended — not enough players for next round.").withStyle(ChatFormatting.YELLOW)));
         }
     }
 
@@ -286,13 +281,13 @@ public class HunterTagGame {
 
         clearEffectsAndTeams(server);
 
-        broadcast(server, Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
-                .append(Text.literal("Game stopped!").formatted(Formatting.YELLOW)));
+        broadcast(server, Component.literal("[Hunter Tag] ").withStyle(ChatFormatting.GOLD)
+                .append(Component.literal("Game stopped!").withStyle(ChatFormatting.YELLOW)));
     }
 
-    public void onPlayerJoin(ServerPlayerEntity player, MinecraftServer server) {
+    public void onPlayerJoin(ServerPlayer player, MinecraftServer server) {
         if (!gameActive) return;
-        UUID uuid = player.getUuid();
+        UUID uuid = player.getUUID();
 
         ensureTeamsExist(server);
 
@@ -302,8 +297,8 @@ public class HunterTagGame {
 
             if (gamePaused) {
                 gamePaused = false;
-                broadcast(server, Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
-                        .append(Text.literal("Game resumed — hunter is back!").formatted(Formatting.YELLOW)));
+                broadcast(server, Component.literal("[Hunter Tag] ").withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal("Game resumed — hunter is back!").withStyle(ChatFormatting.YELLOW)));
             }
         } else if (runners.contains(uuid)) {
             assignTeam(server, player, RUNNER_TEAM);
@@ -311,8 +306,8 @@ public class HunterTagGame {
             // New player joins mid-game as runner
             runners.add(uuid);
             assignTeam(server, player, RUNNER_TEAM);
-            player.sendMessage(Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
-                    .append(Text.literal("You joined as a runner!").formatted(Formatting.GREEN)), false);
+            player.sendSystemMessage(Component.literal("[Hunter Tag] ").withStyle(ChatFormatting.GOLD)
+                    .append(Component.literal("You joined as a runner!").withStyle(ChatFormatting.GREEN)), false);
         }
         updateScoreboard(server);
     }
@@ -323,24 +318,24 @@ public class HunterTagGame {
         runners.remove(uuid);
         frozenUntilTick.remove(uuid);
         frozenPositions.remove(uuid);
-        ServerPlayerEntity player = server.getPlayerManager().getPlayer(uuid);
+        ServerPlayer player = server.getPlayerList().getPlayer(uuid);
         if (player != null) {
-            player.removeStatusEffect(StatusEffects.GLOWING);
+            player.removeEffect(MobEffects.GLOWING);
         }
         if (runners.isEmpty() && gameActive) {
             stopGame(server);
         }
     }
 
-    public void onPlayerDisconnect(ServerPlayerEntity player, MinecraftServer server) {
+    public void onPlayerDisconnect(ServerPlayer player, MinecraftServer server) {
         if (!gameActive) return;
-        UUID uuid = player.getUuid();
+        UUID uuid = player.getUUID();
 
         if (hunters.contains(uuid)) {
             // Check if any other hunter is still online
             boolean otherHunterOnline = false;
             for (UUID hunterUuid : hunters) {
-                if (!hunterUuid.equals(uuid) && server.getPlayerManager().getPlayer(hunterUuid) != null) {
+                if (!hunterUuid.equals(uuid) && server.getPlayerList().getPlayer(hunterUuid) != null) {
                     otherHunterOnline = true;
                     break;
                 }
@@ -348,17 +343,17 @@ public class HunterTagGame {
 
             if (!otherHunterOnline) {
                 gamePaused = true;
-                broadcast(server, Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
-                        .append(Text.literal("Game paused — all hunters disconnected.").formatted(Formatting.YELLOW)));
+                broadcast(server, Component.literal("[Hunter Tag] ").withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal("Game paused — all hunters disconnected.").withStyle(ChatFormatting.YELLOW)));
             }
         } else if (runners.contains(uuid)) {
             runners.remove(uuid);
-            broadcast(server, Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
-                    .append(Text.literal(player.getName().getString() + " (runner) disconnected.").formatted(Formatting.YELLOW)));
+            broadcast(server, Component.literal("[Hunter Tag] ").withStyle(ChatFormatting.GOLD)
+                    .append(Component.literal(player.getName().getString() + " (runner) disconnected.").withStyle(ChatFormatting.YELLOW)));
 
             if (runners.isEmpty()) {
-                broadcast(server, Text.literal("[Hunter Tag] ").formatted(Formatting.GOLD)
-                        .append(Text.literal("No runners left!").formatted(Formatting.YELLOW)));
+                broadcast(server, Component.literal("[Hunter Tag] ").withStyle(ChatFormatting.GOLD)
+                        .append(Component.literal("No runners left!").withStyle(ChatFormatting.YELLOW)));
                 stopGame(server);
             }
         }
@@ -423,8 +418,8 @@ public class HunterTagGame {
     private void setupTeams(MinecraftServer server) {
         ensureTeamsExist(server);
 
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            UUID uuid = player.getUuid();
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            UUID uuid = player.getUUID();
             if (hunters.contains(uuid)) {
                 assignTeam(server, player, HUNTER_TEAM);
             } else if (runners.contains(uuid)) {
@@ -436,46 +431,46 @@ public class HunterTagGame {
     private void ensureTeamsExist(MinecraftServer server) {
         var scoreboard = server.getScoreboard();
 
-        Team hunterTeam = scoreboard.getTeam(HUNTER_TEAM);
+        PlayerTeam hunterTeam = scoreboard.getPlayerTeam(HUNTER_TEAM);
         if (hunterTeam == null) {
-            hunterTeam = scoreboard.addTeam(HUNTER_TEAM);
-            hunterTeam.setColor(Formatting.RED);
-            hunterTeam.setPrefix(Text.literal("[Hunter] ").formatted(Formatting.RED));
+            hunterTeam = scoreboard.addPlayerTeam(HUNTER_TEAM);
+            hunterTeam.setColor(ChatFormatting.RED);
+            hunterTeam.setPlayerPrefix(Component.literal("[Hunter] ").withStyle(ChatFormatting.RED));
         }
 
-        Team runnerTeam = scoreboard.getTeam(RUNNER_TEAM);
+        PlayerTeam runnerTeam = scoreboard.getPlayerTeam(RUNNER_TEAM);
         if (runnerTeam == null) {
-            runnerTeam = scoreboard.addTeam(RUNNER_TEAM);
-            runnerTeam.setColor(Formatting.GREEN);
-            runnerTeam.setPrefix(Text.literal("[Runner] ").formatted(Formatting.GREEN));
+            runnerTeam = scoreboard.addPlayerTeam(RUNNER_TEAM);
+            runnerTeam.setColor(ChatFormatting.GREEN);
+            runnerTeam.setPlayerPrefix(Component.literal("[Runner] ").withStyle(ChatFormatting.GREEN));
         }
     }
 
-    private void assignTeam(MinecraftServer server, ServerPlayerEntity player, String teamName) {
+    private void assignTeam(MinecraftServer server, ServerPlayer player, String teamName) {
         var scoreboard = server.getScoreboard();
-        Team team = scoreboard.getTeam(teamName);
+        PlayerTeam team = scoreboard.getPlayerTeam(teamName);
         if (team != null) {
-            scoreboard.addScoreHolderToTeam(player.getNameForScoreboard(), team);
+            scoreboard.addPlayerToTeam(player.getScoreboardName(), team);
         }
     }
 
     private void applyGlowing(MinecraftServer server) {
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            UUID uuid = player.getUuid();
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            UUID uuid = player.getUUID();
             if (hunters.contains(uuid)) {
                 applyGlowingToPlayer(player, true);
             } else {
-                player.removeStatusEffect(StatusEffects.GLOWING);
+                player.removeEffect(MobEffects.GLOWING);
             }
         }
     }
 
-    private void applyGlowingToPlayer(ServerPlayerEntity player, boolean apply) {
+    private void applyGlowingToPlayer(ServerPlayer player, boolean apply) {
         if (apply) {
-            player.addStatusEffect(new StatusEffectInstance(
-                    StatusEffects.GLOWING, 80, 0, false, false, false));
+            player.addEffect(new MobEffectInstance(
+                    MobEffects.GLOWING, 80, 0, false, false, false));
         } else {
-            player.removeStatusEffect(StatusEffects.GLOWING);
+            player.removeEffect(MobEffects.GLOWING);
         }
     }
 
@@ -484,66 +479,66 @@ public class HunterTagGame {
 
         removeScoreboard(server);
 
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            player.removeStatusEffect(StatusEffects.GLOWING);
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            player.removeEffect(MobEffects.GLOWING);
         }
 
-        Team hunterTeam = scoreboard.getTeam(HUNTER_TEAM);
-        if (hunterTeam != null) scoreboard.removeTeam(hunterTeam);
+        PlayerTeam hunterTeam = scoreboard.getPlayerTeam(HUNTER_TEAM);
+        if (hunterTeam != null) scoreboard.removePlayerTeam(hunterTeam);
 
-        Team runnerTeam = scoreboard.getTeam(RUNNER_TEAM);
-        if (runnerTeam != null) scoreboard.removeTeam(runnerTeam);
+        PlayerTeam runnerTeam = scoreboard.getPlayerTeam(RUNNER_TEAM);
+        if (runnerTeam != null) scoreboard.removePlayerTeam(runnerTeam);
     }
 
     private void createScoreboard(MinecraftServer server) {
         var scoreboard = server.getScoreboard();
-        ScoreboardObjective existing = scoreboard.getNullableObjective(SCORE_OBJECTIVE);
+        Objective existing = scoreboard.getObjective(SCORE_OBJECTIVE);
         if (existing != null) {
             scoreboard.removeObjective(existing);
         }
-        ScoreboardObjective objective = scoreboard.addObjective(
+        Objective objective = scoreboard.addObjective(
                 SCORE_OBJECTIVE,
-                ScoreboardCriterion.DUMMY,
-                Text.literal("Hunter Tag").formatted(Formatting.GOLD),
-                ScoreboardCriterion.RenderType.INTEGER,
+                ObjectiveCriteria.DUMMY,
+                Component.literal("Hunter Tag").withStyle(ChatFormatting.GOLD),
+                ObjectiveCriteria.RenderType.INTEGER,
                 false,
                 null);
-        scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.SIDEBAR, objective);
+        scoreboard.setDisplayObjective(DisplaySlot.SIDEBAR, objective);
         updateScoreboard(server);
     }
 
     private void updateScoreboard(MinecraftServer server) {
         var scoreboard = server.getScoreboard();
-        ScoreboardObjective objective = scoreboard.getNullableObjective(SCORE_OBJECTIVE);
+        Objective objective = scoreboard.getObjective(SCORE_OBJECTIVE);
         if (objective == null) return;
 
         for (Map.Entry<UUID, Long> entry : runnerTickScores.entrySet()) {
-            ServerPlayerEntity player = server.getPlayerManager().getPlayer(entry.getKey());
+            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             if (player == null) continue;
             int seconds = (int) (entry.getValue() / 20);
-            scoreboard.getOrCreateScore(player, objective).setScore(seconds);
+            scoreboard.getOrCreatePlayerScore(player, objective).set(seconds);
         }
     }
 
     private void removeScoreboard(MinecraftServer server) {
         var scoreboard = server.getScoreboard();
-        ScoreboardObjective objective = scoreboard.getNullableObjective(SCORE_OBJECTIVE);
+        Objective objective = scoreboard.getObjective(SCORE_OBJECTIVE);
         if (objective != null) {
             scoreboard.removeObjective(objective);
         }
     }
 
-    private void equipLoadout(ServerPlayerEntity player) {
+    private void equipLoadout(ServerPlayer player) {
         var inventory = player.getInventory();
-        inventory.clear();
+        inventory.clearContent();
 
         // LATER: Boat in hotbar slot 0
-        // inventory.setStack(0, new ItemStack(Items.OAK_BOAT));
+        // inventory.setItem(0, new ItemStack(Items.OAK_BOAT));
     }
 
-    private void broadcast(MinecraftServer server, Text message) {
-        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-            player.sendMessage(message, false);
+    private void broadcast(MinecraftServer server, Component message) {
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            player.sendSystemMessage(message, false);
         }
     }
 }
