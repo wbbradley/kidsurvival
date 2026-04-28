@@ -1,5 +1,9 @@
 ## Completed
 
+### 18. Minecraft 26.1.2 Phase 2 — Smoke Test & 2.0.0 Release
+
+User loaded `kidsurvival-2.0.0.jar` into a 26.1.2 Fabric server (Loader >=0.19.2, Fabric API 0.146.1+26.1.2) and verified runtime behavior. Pushed `main`, tagged `v2.0.0`, and pushed the tag — `release.yml` built the JAR and attached it to the GitHub Release.
+
 ### 17. Upgrade to Minecraft 26.1.2 — Phase 1 (compile-clean, no release)
 
 Migrated the mod from MC 1.21.11 / Yarn / Java 21 / Gradle 8.14 / Loom 1.13.6 to MC 26.1.2 / Mojang official mappings / Java 25 / Gradle 9.4.1 / Loom 1.15.5. Yarn is dropped (26.1 is the first unobfuscated Minecraft release; parameter names ship in Mojang mappings, no Parchment needed). Loom plugin id moved to `net.fabricmc.fabric-loom`, no remap step (`modImplementation` -> `implementation`). Fabric Loader bumped to 0.19.2, Fabric API to 0.146.1+26.1.2. `fabric.mod.json` declares `minecraft: ~26.1.2`, `java: >=25`. Mixin scaffolding deleted (`kidsurvival.mixins.json` + empty `mixin/` package — no mixins were ever in use). `gradlew` shim updated from openjdk@21 to openjdk@25.
