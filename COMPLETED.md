@@ -1,5 +1,9 @@
 ## Completed
 
+### 20. Minecraft 26.2 Phase 2 — Smoke Test & 2.1.0 Release
+
+User loaded `kidsurvival-2.1.0.jar` into a real 26.2 Fabric server (Loader 0.19.3, Fabric API 0.154.0+26.2) and verified runtime behavior — `/kid`, `/hunger`, `/bench`, and a full Hunter Tag round (freeze, tag/glow, action bar, scoreboard sidebar, "CAPTURED!" title, sneak-to-hide, state persistence across a server restart). Pushed `main`, tagged `v2.1.0`, and pushed the tag — `release.yml` built the JAR and attached it to the GitHub Release.
+
 ### 19. Upgrade to Minecraft 26.2 — Phase 1 (compile-clean, no release)
 
 Incremental bump from MC 26.1.2 → 26.2. In `gradle.properties`: `minecraft_version` 26.1.2 → 26.2, `loader_version` 0.19.2 → 0.19.3, `loom_version` 1.15.5 → 1.17.13, `fabric_version` 0.146.1+26.1.2 → 0.154.0+26.2, `mod_version` 2.0.0 → 2.1.0. `fabric.mod.json` updated to `fabricloader >=0.19.3` and `minecraft ~26.2` (`java >=25`, `fabric-api *` unchanged). Gradle wrapper bumped 9.4.1 → 9.5.1 by hand-editing the `distributionUrl` line only — left `gradlew`/`gradlew.bat`/`gradle-wrapper.jar` untouched to preserve the custom Homebrew-Java-25 autodetect block in the shim. Java stayed at 25, so `build.gradle`, the `gradlew` shim, and `release.yml` needed no changes.
