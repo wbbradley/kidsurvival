@@ -1,5 +1,11 @@
 ## Completed
 
+### 21. Bump GitHub Actions off Node 20 (CI hygiene)
+
+Updated `.github/workflows/release.yml` to move the three pinned actions off the Node 20 runtime (GitHub forces Node 20 JS actions to Node 24 on 2026-06-02 and removes the Node 20 runtime on 2026-09-16). Bumped `actions/checkout@v4 → @v7`, `actions/setup-java@v4 → @v5`, and `gradle/actions/setup-gradle@v4 → @v6` — all current majors run on `node24`. Kept floating major tags (no SHA pinning) to match the existing convention; Java stays at 25 / temurin.
+
+Added a `workflow_dispatch:` trigger and guarded the "Create GitHub Release" step with `if: startsWith(github.ref, 'refs/tags/')` so a manual dispatch from `main` exercises checkout + setup-java + setup-gradle + `./gradlew build` (the three actions we care about) without publishing a bogus release. On a real `vX.Y.Z` tag push the guard is true and the release publishes as before. Verified via a manual dispatch run that succeeded with the release step skipped and created no stray release/tag.
+
 ### 20. Minecraft 26.2 Phase 2 — Smoke Test & 2.1.0 Release
 
 User loaded `kidsurvival-2.1.0.jar` into a real 26.2 Fabric server (Loader 0.19.3, Fabric API 0.154.0+26.2) and verified runtime behavior — `/kid`, `/hunger`, `/bench`, and a full Hunter Tag round (freeze, tag/glow, action bar, scoreboard sidebar, "CAPTURED!" title, sneak-to-hide, state persistence across a server restart). Pushed `main`, tagged `v2.1.0`, and pushed the tag — `release.yml` built the JAR and attached it to the GitHub Release.
