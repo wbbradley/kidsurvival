@@ -6,7 +6,15 @@ A Fabric server-side mod for kid-friendly Minecraft servers. Toggle invulnerabil
 
 ### Kid Mode
 
-- `/kid` toggle — grants invulnerability, hunger immunity, and continuous health restoration
+- `/kid` toggle — grants invulnerability and continuous health restoration
+- Available to all players, no operator permissions needed
+- State persists across server restarts
+
+### Hunger Mode
+
+- `/hunger` toggle — keeps food and saturation maxed so the player never gets hungry
+- Independent of Kid Mode; enable either on its own or both together
+- Combined status is shown in the action bar ("Kid Mode + No Hunger", "Kid Mode Active", or "No Hunger")
 - Available to all players, no operator permissions needed
 - State persists across server restarts
 
@@ -43,6 +51,7 @@ A Fabric server-side mod for kid-friendly Minecraft servers. Toggle invulnerabil
 ## Usage
 
 - `/kid` — toggle invulnerability (any player can run it)
+- `/hunger` — toggle no-hunger mode, keeping food and saturation full (any player can run it)
 - `/hunter` — start a Hunter Tag round (needs 2+ online players)
 
 ## Building from Source
