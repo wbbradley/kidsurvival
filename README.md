@@ -45,7 +45,7 @@ A Fabric server-side mod for kid-friendly Minecraft servers. Toggle invulnerabil
 1. Create or select a Minecraft 26.2 instance in Prism Launcher
 2. Click **Edit Instance** > **Version** tab > **Install Fabric** — select loader 0.19.3+
 3. Download Fabric API from [Modrinth](https://modrinth.com/mod/fabric-api) (match Minecraft version 26.2)
-4. Build or obtain `kidsurvival-2.2.1.jar` (see [Building from Source](#building-from-source))
+4. Build or obtain `kidsurvival-2.2.2.jar` (see [Building from Source](#building-from-source))
 5. Click **Edit Instance** > **Mods** tab > **Add** — add both the Fabric API and Kid Survival JARs
 6. For dedicated servers: place both JARs in the server's `mods/` folder
 
@@ -64,7 +64,7 @@ cd kidsurvival
 ./gradlew build
 ```
 
-Output JAR: `build/libs/kidsurvival-2.2.1.jar`
+Output JAR: `build/libs/kidsurvival-2.2.2.jar`
 
 ## Troubleshooting
 
