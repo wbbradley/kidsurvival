@@ -1,5 +1,13 @@
 ## Completed
 
+### 19. Upgrade to Minecraft 26.2 — Phase 1 (compile-clean, no release)
+
+Incremental bump from MC 26.1.2 → 26.2. In `gradle.properties`: `minecraft_version` 26.1.2 → 26.2, `loader_version` 0.19.2 → 0.19.3, `loom_version` 1.15.5 → 1.17.13, `fabric_version` 0.146.1+26.1.2 → 0.154.0+26.2, `mod_version` 2.0.0 → 2.1.0. `fabric.mod.json` updated to `fabricloader >=0.19.3` and `minecraft ~26.2` (`java >=25`, `fabric-api *` unchanged). Gradle wrapper bumped 9.4.1 → 9.5.1 by hand-editing the `distributionUrl` line only — left `gradlew`/`gradlew.bat`/`gradle-wrapper.jar` untouched to preserve the custom Homebrew-Java-25 autodetect block in the shim. Java stayed at 25, so `build.gradle`, the `gradlew` shim, and `release.yml` needed no changes.
+
+One real 26.2 API break surfaced (verified against the freshly cached `minecraft-merged-…-26.2.jar` with `javap`): `PlayerTeam.setColor` now takes `Optional<TeamColor>` (a new `net.minecraft.world.scores.TeamColor` enum) instead of `ChatFormatting`. Fixed in `HunterTagGame.ensureTeamsExist` by importing `TeamColor` and replacing the two calls with `setColor(Optional.of(TeamColor.RED/GREEN))`; the `withStyle(ChatFormatting.…)` prefix styling was unaffected.
+
+`./gradlew build` is green against Loom 1.17.13 / Gradle 9.5.1; `build/libs/kidsurvival-2.1.0.jar` declares the correct metadata (`version 2.1.0`, `minecraft ~26.2`, `fabricloader >=0.19.3`). No git tag, no release — the live 26.2 smoke test and 2.1.0 release are Phase 2.
+
 ### 18. Minecraft 26.1.2 Phase 2 — Smoke Test & 2.0.0 Release
 
 User loaded `kidsurvival-2.0.0.jar` into a 26.1.2 Fabric server (Loader >=0.19.2, Fabric API 0.146.1+26.1.2) and verified runtime behavior. Pushed `main`, tagged `v2.0.0`, and pushed the tag — `release.yml` built the JAR and attached it to the GitHub Release.
