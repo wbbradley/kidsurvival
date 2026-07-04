@@ -29,6 +29,7 @@ A Fabric server-side mod for kid-friendly Minecraft servers. Toggle invulnerabil
 - Role shown in action bar with freeze countdown
 - Cumulative runner-time scoring across rounds
 - Handles disconnects (pause/resume) and mid-game joins
+- `/bench` opts a player out entirely — benched players are skipped when rounds start and never auto-join mid-game
 - Game state and scores persist across server restarts
 
 ## Requirements
@@ -52,7 +53,8 @@ A Fabric server-side mod for kid-friendly Minecraft servers. Toggle invulnerabil
 
 - `/kid` — toggle invulnerability (any player can run it)
 - `/hunger` — toggle no-hunger mode, keeping food and saturation full (any player can run it)
-- `/hunter` — start a Hunter Tag round (needs 2+ online players)
+- `/hunter` — start a Hunter Tag round (needs 2+ non-benched online players)
+- `/bench` — toggle opting out of Hunter Tag (any player can run it)
 
 ## Building from Source
 
