@@ -63,6 +63,10 @@ Output JAR: `build/libs/kidsurvival-2.2.0.jar`
 - **/hunter says need 2+ players:** Hunter Tag requires at least 2 online players to start a round.
 - **Hunter Tag game won't start:** The command must be run by a player, not the server console.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the release history.
+
 ## License
 
 MIT
