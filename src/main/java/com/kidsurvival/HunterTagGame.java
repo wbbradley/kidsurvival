@@ -22,6 +22,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.DisplaySlot;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.world.scores.TeamColor;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 
 public class HunterTagGame {
@@ -434,14 +435,14 @@ public class HunterTagGame {
         PlayerTeam hunterTeam = scoreboard.getPlayerTeam(HUNTER_TEAM);
         if (hunterTeam == null) {
             hunterTeam = scoreboard.addPlayerTeam(HUNTER_TEAM);
-            hunterTeam.setColor(ChatFormatting.RED);
+            hunterTeam.setColor(Optional.of(TeamColor.RED));
             hunterTeam.setPlayerPrefix(Component.literal("[Hunter] ").withStyle(ChatFormatting.RED));
         }
 
         PlayerTeam runnerTeam = scoreboard.getPlayerTeam(RUNNER_TEAM);
         if (runnerTeam == null) {
             runnerTeam = scoreboard.addPlayerTeam(RUNNER_TEAM);
-            runnerTeam.setColor(ChatFormatting.GREEN);
+            runnerTeam.setColor(Optional.of(TeamColor.GREEN));
             runnerTeam.setPlayerPrefix(Component.literal("[Runner] ").withStyle(ChatFormatting.GREEN));
         }
     }
