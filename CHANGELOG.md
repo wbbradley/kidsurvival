@@ -5,6 +5,12 @@ All notable changes to Kid Survival are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-07-04
+
+### Added
+
+- This CHANGELOG, documenting the full release history, shipped as part of the release artifact.
+
 ## [2.2.0] - 2026-07-04
 
 ### Changed
@@ -95,6 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Kid-mode state persistence across server restarts via `kidsurvival.json`.
 - README with installation, usage, and troubleshooting.
 
+[2.2.1]: https://github.com/wbbradley/kidsurvival/releases/tag/v2.2.1
 [2.2.0]: https://github.com/wbbradley/kidsurvival/releases/tag/v2.2.0
 [2.1.0]: https://github.com/wbbradley/kidsurvival/releases/tag/v2.1.0
 [2.0.0]: https://github.com/wbbradley/kidsurvival/releases/tag/v2.0.0
